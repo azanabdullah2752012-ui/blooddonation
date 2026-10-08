@@ -4,12 +4,42 @@
  * Desk of Sunil, Honorary Secretary
  */
 
+// Immediately reset scroll restoration so reloads don't jump down the page
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
+// Clear trailing section hashes (e.g. #register) so reloads always start at the hero top
+if (window.location.hash) {
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+window.scrollTo(0, 0);
+
 document.addEventListener('DOMContentLoaded', () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+
+  // Handle smooth scroll for navigation links without locking the URL hash
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', (e) => {
+      const targetId = anchor.getAttribute('href');
+      if (!targetId || targetId === '#') return;
+      const targetEl = document.querySelector(targetId);
+      if (targetEl) {
+        e.preventDefault();
+        targetEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  });
+
   initCountdown();
   initBloodMatcher();
   initEligibilityQuiz();
   initRegistrationAndPledges();
   initFAQAccordion();
+});
+
+window.addEventListener('load', () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 });
 
 // -------------------------------------------------------------
@@ -97,7 +127,7 @@ const bloodData = {
 };
 
 function initBloodMatcher() {
-  const bloodButtons = document.querySelectorAll('.blood-btn');
+  const bloodButtons = document.querySelectorAll('.blood-type-tile, .blood-btn');
   const donateListEl = document.getElementById('can-donate-to-list');
   const receiveListEl = document.getElementById('can-receive-from-list');
   const factEl = document.getElementById('blood-fun-fact');
@@ -117,14 +147,18 @@ function initBloodMatcher() {
       return `<span class="badge-can">${group}</span>`;
     }).join(' ');
 
-    // Fact
-    factEl.innerHTML = `💡 <em>${data.fact}</em>`;
+    // Fact / Clinical guidance
+    factEl.innerHTML = `<strong>Clinical Note:</strong> <em>${data.fact}</em>`;
   }
 
   bloodButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      bloodButtons.forEach(b => b.classList.remove('active'));
+      bloodButtons.forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       const selectedType = btn.getAttribute('data-type');
       renderBloodInfo(selectedType);
     });
@@ -378,8 +412,9 @@ function initFAQAccordion() {
   const faqItems = document.querySelectorAll('.faq-item');
 
   faqItems.forEach(item => {
-    const questionBtn = item.querySelector('.faq-question');
-    const answerEl = item.querySelector('.faq-answer');
+    const questionBtn = item.querySelector('.faq-question-btn, .faq-question');
+    const answerEl = item.querySelector('.faq-answer-drawer, .faq-answer');
+    if (!questionBtn || !answerEl) return;
 
     questionBtn.addEventListener('click', () => {
       const isActive = item.classList.contains('active');
@@ -388,16 +423,21 @@ function initFAQAccordion() {
       faqItems.forEach(otherItem => {
         if (otherItem !== item) {
           otherItem.classList.remove('active');
-          otherItem.querySelector('.faq-answer').style.maxHeight = null;
+          const otherBtn = otherItem.querySelector('.faq-question-btn, .faq-question');
+          const otherAns = otherItem.querySelector('.faq-answer-drawer, .faq-answer');
+          if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+          if (otherAns) otherAns.style.maxHeight = null;
         }
       });
 
       // Toggle current
       if (isActive) {
         item.classList.remove('active');
+        questionBtn.setAttribute('aria-expanded', 'false');
         answerEl.style.maxHeight = null;
       } else {
         item.classList.add('active');
+        questionBtn.setAttribute('aria-expanded', 'true');
         answerEl.style.maxHeight = answerEl.scrollHeight + 'px';
       }
     });
